@@ -3,7 +3,7 @@ Connector to communicate with IBM Presence Insights
 
 ## usage of the controller methods
 
-===== insert in AppDelegete class in "- (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions"
+##### insert in AppDelegete class in "- (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions"
 <pre><code>
 	    //Read the file PiConfig.plist
     NSString *configurationPath = [[NSBundle mainBundle]pathForResource:@"PiConfig" ofType:@"plist"];
@@ -45,7 +45,7 @@ NSString *regUUID = [pICL.registeredUUID lastObject];
    [pICL deleteTimerForBackendTransfer];
 </pre></code>
 
-#####  insert the following snippet in the method "-(void)locationManager:(CLLocationManager *)manager didRangeBeacons:(NSArray *)beacons inRegion:(CLBeaconRegion *)region" of your Viewcontroller
+##### insert the following snippet in the method "-(void)locationManager:(CLLocationManager *)manager didRangeBeacons:(NSArray *)beacons inRegion:(CLBeaconRegion *)region" of your Viewcontroller
 <pre><code>
    [pICL saveBeaconArrayForBackendTransfer:beacons];
 </pre></code>
