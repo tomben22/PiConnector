@@ -1,11 +1,14 @@
 # PiConnector
 Connector to communicate with IBM Presence Insights
 
+## tasks
+- [ ] implement the other API methods 
+- [ ] add exception handling
+
 ## usage of the controller methods
 
-##### insert in AppDelegete class in "- (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions"
-<pre><code>
-	    //Read the file PiConfig.plist
+###### insert in AppDelegete class in "- (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions"
+<pre><code>	    //Read the file PiConfig.plist
     NSString *configurationPath = [[NSBundle mainBundle]pathForResource:@"PiConfig" ofType:@"plist"];
     NSDictionary *configuration = [NSDictionary dictionaryWithContentsOfFile:configurationPath];
     NSString *applicationId = configuration[@"applicationid"];
@@ -21,31 +24,20 @@ Connector to communicate with IBM Presence Insights
     
         self.logger = [IMFLogger loggerForName:[NSString stringWithFormat:@"%@",
                                             [[[NSBundle mainBundle] infoDictionary]
-                                             objectForKey:(NSString*)kCFBundleNameKey]]];
-</code></pre>
+                                             objectForKey:(NSString*)kCFBundleNameKey]]];</code></pre>
 
-##### insert in your "-(void)viewDidLoad" method 
-<pre><code>
-// init PICL
-PresenceInsightsController * pICL = [[PresenceInsightsController alloc]init];
-</pre></code>
+###### insert in your "-(void)viewDidLoad" method 
+<pre><code>// init PICL
+PresenceInsightsController * pICL = [[PresenceInsightsController alloc]init];</pre></code>
 
-##### use these snippet to get the registered UUID fromthe PI backend and init the CLocationManager with for scanning beacons
-<pre><code>
-NSString *regUUID = [pICL.registeredUUID lastObject];
-</pre></code>
+###### use these snippet to get the registered UUID fromthe PI backend and init the CLocationManager with for scanning beacons
+<pre><code>NSString *regUUID = [pICL.registeredUUID lastObject];</pre></code>
 
-##### insert into "-(void)locationManager:(CLLocationManager *)manager didEnterRegion:(CLRegion *)region"
-<pre><code>
-[pICL initTimerForBackendTransfer];
-</pre></code>
+###### insert into "-(void)locationManager:(CLLocationManager *)manager didEnterRegion:(CLRegion *)region"
+<pre><code>[pICL initTimerForBackendTransfer];</pre></code>
 
-##### insert in the "-(void)locationManager:(CLLocationManager *)manager didExitRegion:(CLRegion *)region" Method 
-<pre><code>
-   [pICL deleteTimerForBackendTransfer];
-</pre></code>
+###### insert in the "-(void)locationManager:(CLLocationManager *)manager didExitRegion:(CLRegion *)region" Method 
+<pre><code>[pICL deleteTimerForBackendTransfer];</pre></code>
 
-##### insert the following snippet in the method "-(void)locationManager:(CLLocationManager *)manager didRangeBeacons:(NSArray *)beacons inRegion:(CLBeaconRegion *)region" of your Viewcontroller
-<pre><code>
-   [pICL saveBeaconArrayForBackendTransfer:beacons];
-</pre></code>
+###### insert the following snippet in the method "-(void)locationManager:(CLLocationManager *)manager didRangeBeacons:(NSArray *)beacons inRegion:(CLBeaconRegion *)region" of your Viewcontroller
+<pre><code>[pICL saveBeaconArrayForBackendTransfer:beacons];</pre></code>
