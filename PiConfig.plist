@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>deviceusername</key>
+	<string>John Doe</string>
+	<key>deviceusermailaddress</key>
+	<string>john@johndoe.com</string>
+	<key>TimerdelayForBackendCall</key>
+	<string>20</string>
+	<key>loggername</key>
+	<string>PatientCheckInApp</string>
+	<key>restserviceroute</key>
+	<string>https://presenceinsights.ng.bluemix.net:443</string>
+	<key>applicationroute</key>
+	<string>tbd</string>
+	<key>applicationid</key>
+	<string>tbd</string>
+	<key>tenantcode</key>
+	<string>tbd</string>
+	<key>orgcode</key>
+	<string>tbd</string>
+	<key>piusername</key>
+	<string>tbd</string>
+	<key>pipassword</key>
+	<string>tbd</string>
+</dict>
+</plist>
