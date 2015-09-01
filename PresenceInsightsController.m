@@ -2,9 +2,9 @@
 //  PresenseInsightsController.m
 //  RPi4Home
 //
-//  Created by TBendig <tom@tomben.de> on 07.07.15.
-//  Copyright (c) 2015 Thomas Bendig All rights reserved.
-//  Version: 0.2b
+//  Created by TBendig <tbendig@csc.com> on 07.07.15.
+//  Copyright (c) 2015 CSC M&D. All rights reserved.
+//  Version: 0.3
 //
 
 #import "PresenceInsightsController.h"
@@ -14,6 +14,7 @@
 #define GET 2
 #define PUT 3
 #define DELETE 4
+
 
 #pragma mark PI PayploadClass interface and implementation
 /**
@@ -53,14 +54,11 @@
 
 @interface PresenceInsightsController(){
     dispatch_queue_t myQueue;
-    IMFLogger *logger;
     NSString * appName;
+    NSOperationQueue *queue;
+    NSData *responseData;
+    BOOL deviceRegistered;
 }
-- (void) piConnect2Backend;
-- (void) startBackgroundTaskForTransfer:(id)sender;
-- (void) retrieveUUIDsFromBackend;
-- (void) sendFoundBeaconDatatoPresenceInsightsBackend:(CLBeacon*)beacon;
-- (void) registerPiDeviceThroughRestAPI;
 @end
 
 
@@ -83,40 +81,39 @@
                                                         ofType:@"plist"]];
         
         // create the PI Backend transfer queue
-        myQueue = dispatch_queue_create([[NSString stringWithFormat:@"%@",
-                                          [[NSBundle mainBundle] bundleIdentifier]]
+        myQueue = dispatch_queue_create([@"PR-Controller"
                                          cStringUsingEncoding:NSASCIIStringEncoding],
                                         NULL);
         
+        
+        queue = [[NSOperationQueue alloc] init];;
         
         appName = [NSString stringWithFormat:@"%@",
                    [[[NSBundle mainBundle] infoDictionary]
                     objectForKey:(NSString*)kCFBundleNameKey]];
         
-        [self piConnect2Backend];
+        // get registration status from local storage
+        NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+        deviceRegistered = [defaults objectForKey:@"deviceRegistered"];
+        
+        NSLog(@"Presence Insights Controller startet");
     }
     return self;
 }
-
 
 /**
  *  Connect to the PI Backend, register the actual device and get the PI known UUIDS
  */
 - (void)piConnect2Backend{
-    //Logging is currently set to Info level. You can set the level below
-    // based on how much output you want to see:
-    logger=[IMFLogger loggerForName:appName];
-    [IMFLogger setLogLevel:IMFLogLevelInfo];
-    [logger logInfoWithMessages:@"Create Connection to PI"];
     
     // retrieve known UUIDS
-    [self retrieveUUIDsFromBackend];
+    //  [self retrieveUUIDsFromBackend];
     
     //register device if it is not registered before
-    [self registerPiDeviceThroughRestAPI];
+//    [self registerPiDeviceThroughRestAPI];
     
-    [IMFLogger send];
 }
+
 
 
 /**
@@ -124,23 +121,34 @@
  *  stores the UUIDS in the class viariable registerUUID
  */
 -(void)retrieveUUIDsFromBackend{
+    if(self.connectedToNetwork){
+        
+        
+        //check if device is allready registered
+        NSString *endpoint = [NSString stringWithFormat:@"/pi-config/v1/tenants/%@/orgs/%@/views/proximityUUID",
+                              configuration[@"tenantcode"],
+                              configuration[@"orgcode"]];
+        
+        NSData *response = [self sendRequestToPIBackendEndpointWithURL:endpoint
+                                                     andAuthentication:YES
+                                                      andOperationMode:GET
+                                                            andPayload:Nil];
+        
+        self.registeredUUID = [NSJSONSerialization
+                               JSONObjectWithData:response
+                               options:NSJSONReadingMutableContainers
+                               error:nil];
+    }else{
+        UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"No connection to PI-Service"
+                                                        message:@"Please check your network connection."
+                                                       delegate:self
+                                              cancelButtonTitle:@"OK"
+                                              otherButtonTitles:nil];
+        [alert show];
+    }
     
-    //check if device is allready registered
-    NSString *endpoint = [NSString stringWithFormat:@"/pi-config/v1/tenants/%@/orgs/%@/views/proximityUUID",
-                          configuration[@"tenantcode"],
-                          configuration[@"orgcode"]];
-    
-    NSData *response = [self sendRequestToPIBackendEndpointWithURL:endpoint
-                                                 andAuthentication:YES
-                                                  andOperationMode:GET
-                                                        andPayload:Nil];
-    
-    self.registeredUUID = [NSJSONSerialization
-                           JSONObjectWithData:response
-                           options:NSJSONReadingMutableContainers
-                           error:nil];
-
 }
+
 
 
 
@@ -150,6 +158,10 @@
  *  @param beacon CLBeacon Object
  */
 -(void) sendFoundBeaconDatatoPresenceInsightsBackend:(CLBeacon*)beacon {
+    
+    if(!deviceRegistered){
+        [self registerPiDeviceThroughRestAPI];
+    }
     
     // send data to the Pi backend
     PresenceInsightsPayloadClass *piPC =  [PresenceInsightsPayloadClass alloc];
@@ -206,6 +218,7 @@
     piPC = nil;
 }
 
+#warning TODO make async call here
 
 /**
  *  make the Presence Insights REST API Call and transfer the data
@@ -221,6 +234,11 @@
                                 andAuthentication:(BOOL)authenticationRequired
                                  andOperationMode:(int )operation
                                        andPayload:(NSString*) payload{
+    
+    // check if device is registered
+    if(!deviceRegistered){
+        [self registerPiDeviceThroughRestAPI];
+    }
     
     // setup rest url
     NSString *backendUrlString = [NSString stringWithFormat:@"%@%@",
@@ -286,16 +304,24 @@
     
     // create the Request
     NSHTTPURLResponse *requestResponse;
-    NSData *requestHandler = [NSURLConnection sendSynchronousRequest:request
-                                                   returningResponse:&requestResponse
-                                                               error:nil];
-    
-    NSLog(@"HTTP Statuscode: %li", (long)[requestResponse statusCode]);
-    [logger logInfoWithMessages:@"HTTP Statuscode: %li", (long)[requestResponse statusCode]];
-    [IMFLogger send];
-    
+    NSData *requestHandler;
+    if(self.connectedToNetwork){
+        requestHandler = [NSURLConnection sendSynchronousRequest:request
+                                               returningResponse:&requestResponse
+                                                           error:nil];
+        
+        NSLog(@"HTTP Statuscode: %li", (long)[requestResponse statusCode]);
+        NSLog(@"%@",requestResponse);
+        NSLog(@"########################  %@",payload);
+        
+    }
+    else{
+        NSLog(@"No Internet Connection available");
+        
+    }
     return requestHandler;
 }
+
 
 
 /**
@@ -303,35 +329,12 @@
  *  if the device is allready known
  */
 -(void)registerPiDeviceThroughRestAPI{
-    
-    //check if device is allready registered
-    NSString *endpoint = [NSString stringWithFormat:@"/pi-config/v1/tenants/%@/orgs/%@/devices",
-                          configuration[@"tenantcode"],
-                          configuration[@"orgcode"]];
-    
-    NSData *response = [self sendRequestToPIBackendEndpointWithURL:endpoint
-                                                 andAuthentication:YES
-                                                  andOperationMode:GET
-                                                        andPayload:Nil];
-    
-    NSDictionary *jsonResponse = [self getJSONResponsefromBackendRequest:response];
-    
-    BOOL isRegistered = NO;
-    
-    NSArray *allKeys = [jsonResponse objectForKey:@"rows"];
-    
-    // check if device allready registered
-    for (int x = 0; x < [allKeys count]; ++x) {
-        NSDictionary *dict = [allKeys objectAtIndex:x];
-        if([[dict objectForKey:@"name"] isEqualToString:[[UIDevice currentDevice] name]] && [dict objectForKey:@"registered"]){
-            isRegistered = YES;
-            [logger logInfoWithMessages:@"Device is still registered in your organisation"];
-            break;
-        };
-    }
-    
-    //if device is not registered, try to register
-    if(!isRegistered){
+    NSLog(@"Device registration startet- Status: %@", deviceRegistered?@"YES":@"NO");
+    if(!deviceRegistered){
+        NSString *endpoint = [NSString stringWithFormat:@"/pi-config/v1/tenants/%@/orgs/%@/devices",
+                              configuration[@"tenantcode"],
+                              configuration[@"orgcode"]];
+        
         PresenceInsightsPayloadClass *piPC =  [PresenceInsightsPayloadClass alloc];
         NSString *payloadString = piPC.getPayloadStringForRegisterDevices;
         
@@ -342,33 +345,29 @@
                              configuration[@"deviceusermailaddress"],
                              [[[UIDevice currentDevice]identifierForVendor]UUIDString],
                              [[UIDevice currentDevice]model]];
-        
-        [self sendRequestToPIBackendEndpointWithURL:endpoint
-                                  andAuthentication:YES
-                                   andOperationMode:POST
-                                         andPayload:payload];
-        
-        [IMFLogger send]; // send logs to bluemix backend
+        NSLog(@"internet? %@", self.connectedToNetwork ? @"YES":@"NO");
+        if(self.connectedToNetwork){
+            
+            [self sendRequestToPIBackendEndpointWithURL:endpoint
+                                      andAuthentication:YES
+                                       andOperationMode:POST
+                                             andPayload:payload];
+            // store to NSUserDefaults
+            deviceRegistered = true;
+            NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+            [defaults setValue:@"YES" forKey:@"deviceRegistered"];
+            [defaults synchronize];
+            
+        }else{
+            NSLog(@"Device is offline. No Backend data transfer initiated!");
+            UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"Check Internet Connection"
+                                                            message:@"It seems that you are offline. Please check your internet connection."
+                                                           delegate:self
+                                                  cancelButtonTitle:@"OK"
+                                                  otherButtonTitles:nil];
+            [alert show];
+        }
     }
-}
-
-
-/**
- *  convert response into NSDictionary
- *  @param data <#data description#>
- *  @return NSDictionary object with the encoded JSON data
- */
--(NSDictionary * )getJSONResponsefromBackendRequest:(NSData*)data{
-    NSMutableData *responseData = [[NSMutableData alloc] init];
-    [responseData appendData:data];
-    
-    NSString *responseString = [[NSString alloc] initWithData:responseData
-                                                     encoding:NSUTF8StringEncoding];
-    NSError *e = nil;
-    NSData *jsonData = [responseString dataUsingEncoding:NSUTF8StringEncoding];
-    return [NSJSONSerialization JSONObjectWithData:jsonData
-                                           options: NSJSONReadingMutableContainers
-                                             error: &e];
 }
 
 
@@ -380,16 +379,6 @@
 -(NSString *)getTimestamp{
     return [NSString stringWithFormat:@"%f",
             ([[NSDate date] timeIntervalSince1970] * 1000.0) ];
-}
-
-
-/**
- *  save the beacon array of found beacons in the controller class
- *
- *  @param beacons <#beacons description#>
- */
--(void) saveBeaconArrayForBackendTransfer:(NSArray*)beacons{
-    self.beaconArray = [[NSMutableArray alloc] initWithArray:beacons];
 }
 
 
@@ -408,7 +397,36 @@
     }
 }
 
+#pragma mark JSON convert methods
 
+/**
+ *  convert response into NSDictionary
+ *  @param data <#data description#>
+ *  @return NSDictionary object with the encoded JSON data
+ */
+-(NSDictionary * )getJSONResponsefromBackendRequest:(NSData*)data{
+    NSMutableData *rData = [[NSMutableData alloc] init];
+    [rData appendData:data];
+    
+    NSString *responseString = [[NSString alloc] initWithData:rData
+                                                     encoding:NSUTF8StringEncoding];
+    NSError *e = nil;
+    NSData *jsonData = [responseString dataUsingEncoding:NSUTF8StringEncoding];
+    return [NSJSONSerialization JSONObjectWithData:jsonData
+                                           options: NSJSONReadingMutableContainers
+                                             error: &e];
+}
+
+
+#pragma mark PresenceInsightsController public methods
+/**
+ *  save the beacon array of found beacons in the controller class
+ *
+ *  @param beacons <#beacons description#>
+ */
+-(void) saveBeaconArrayForBackendTransfer:(NSArray*)beacons{
+    self.beaconArray = [[NSMutableArray alloc] initWithArray:beacons];
+}
 
 /**
  *  init & start time for backend transfer
@@ -422,7 +440,6 @@
                                                    repeats: YES];
 }
 
-
 /**
  *  delete time for backend transfer service
  */
@@ -430,5 +447,43 @@
     [updateTimer invalidate];
     updateTimer = nil;
 }
+
+
+# pragma mark internet check methods
+/**
+ *  check if internet connection  is available
+ *
+ *  @return Boolean
+ */
+-(BOOL)connectedToNetwork {
+    struct sockaddr_in zeroAddress;
+    bzero(&zeroAddress, sizeof(zeroAddress));
+    zeroAddress.sin_len = sizeof(zeroAddress);
+    zeroAddress.sin_family = AF_INET;
+    
+    // call accessibility flag
+    SCNetworkReachabilityRef defaultRouteReachability =
+    SCNetworkReachabilityCreateWithAddress(NULL, (struct sockaddr *) &zeroAddress);
+    SCNetworkReachabilityFlags flags;
+    
+    BOOL didReceiveFlags = SCNetworkReachabilityGetFlags(defaultRouteReachability, &flags);
+    CFRelease(defaultRouteReachability);
+    
+    if(!didReceiveFlags)
+    {
+        return NO;
+    }
+    BOOL isReachable = ((flags & kSCNetworkFlagsReachable) != 0);
+    BOOL needsConnection = ((flags & kSCNetworkFlagsConnectionRequired) != 0);
+    
+    if(isReachable && !needsConnection){
+        return YES;
+    }
+    else
+    {
+        return NO;
+    }
+}
+
 
 @end

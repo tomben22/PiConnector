@@ -1,30 +1,11 @@
 # PiConnector
 Connector to communicate with IBM Presence Insights
 
-## tasks
+## upcoming tasks
 - [ ] implement the other API methods 
 - [ ] add exception handling
 
 ## usage of the controller methods
-
-###### insert in AppDelegete class in "- (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions"
-<pre><code>	    //Read the file PiConfig.plist
-    NSString *configurationPath = [[NSBundle mainBundle]pathForResource:@"PiConfig" ofType:@"plist"];
-    NSDictionary *configuration = [NSDictionary dictionaryWithContentsOfFile:configurationPath];
-    NSString *applicationId = configuration[@"applicationid"];
-    NSString *applicationRoute = configuration[@"applicationroute"];
-    
-    // initialize MobileFirst SDK with IBM Bluemix application ID and route
-    [[IMFClient sharedInstance] initializeWithBackendRoute: applicationRoute backendGUID:applicationId];
-    
-    //analytics and monitoring
-    [IMFLogger captureUncaughtExceptions]; // capture and record exceptions
-    [IMFLogger setLogLevel:IMFLogLevelInfo]; // setting the verbosity filter
-    [[IMFAnalytics sharedInstance] startRecordingApplicationLifecycleEvents]; // automatically record app startup times and fg/bg events
-    
-        self.logger = [IMFLogger loggerForName:[NSString stringWithFormat:@"%@",
-                                            [[[NSBundle mainBundle] infoDictionary]
-                                             objectForKey:(NSString*)kCFBundleNameKey]]];</code></pre>
 
 ###### insert in your "-(void)viewDidLoad" method 
 <pre><code>// init PICL
