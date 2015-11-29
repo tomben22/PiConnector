@@ -2,8 +2,8 @@
 //  PresenseInsightsController.h
 //  RPi4Home
 //
-//  Created by TBendig <tbendig@csc.com> on 07.07.15.
-//  Copyright (c) 2015 CSC M&D. All rights reserved.
+//  Created by TBendig <dev@tomben.de> on 07.07.15.
+//  Copyright (c) 2015 TBendig. All rights reserved.
 //  Version: 0.4
 //
 
@@ -11,8 +11,9 @@
 #import <CoreBluetooth/CoreBluetooth.h>
 #import <CoreLocation/CoreLocation.h>
 #import <dispatch/dispatch.h>
-#import <SystemConfiguration/SystemConfiguration.h>
-#import <netinet/in.h>
+
+typedef void (^PICompletionHandler)(NSData *response, BOOL success);
+typedef void (^PIUUIDCompletionHandler) (NSArray *registeredUUIDS,BOOL success);
 
 @interface PresenceInsightsController : NSObject
 
@@ -20,8 +21,7 @@
 @property (strong, nonatomic) CLBeaconRegion *beaconRegion;
 @property (strong, nonatomic) NSDictionary *configuration;
 @property (strong, nonatomic) NSMutableArray *beaconArray;
-@property (nonatomic, strong) NSTimer *updateTimer;
-@property (nonatomic, strong) NSArray *registeredUUID;
+//@property (nonatomic, strong) NSTimer *updateTimer;
 
 
 
@@ -33,21 +33,19 @@
 - (void) saveBeaconArrayForBackendTransfer:(NSArray*)beacons;
 
 
+-(void)retrieveUUIDsFromBackend:(PIUUIDCompletionHandler)completionHandler;
+
+
+-(void) sendFoundBeaconDatatoPresenceInsightsBackend:(CLBeacon*)beacon;
+
 /**
  *  init & start time for backend transfer
  */
-- (void) initTimerForBackendTransfer;
+//- (void) initTimerForBackendTransfer;
 
 /**
  *  delete time for backend transfer service
  */
-- (void) deleteTimerForBackendTransfer;
-
-/**
- *  Check if internet connection is available
- *
- *  @return <#return value description#>
- */
-- (BOOL) connectedToNetwork;
+//- (void) deleteTimerForBackendTransfer;
 
 @end
